@@ -1,0 +1,131 @@
+
+Option Explicit
+
+Private Function RangeSelect() As Range
+
+    Dim myRange As Range
+    
+    On Error GoTo myError
+        Set myRange = Application.InputBox( _
+            Title:="Number Format Rule From Cell", _
+            Prompt:="Select a cell to pull in your number format rule", _
+            Type:=8)
+
+    Set RangeSelect = myRange
+        
+    Exit Function
+    
+myError:
+    MsgBox "Erreur dans la sélection de Range"
+
+End Function
+
+Private Function tabManager()
+
+    Dim tabName As String
+    Dim tabRoot As String
+    tabRoot = "Split"
+    Dim tabIndex As Integer
+    tabIndex = 0
+    
+    Dim feuille As Variant
+    Dim feuilleExiste As Boolean
+    Dim feuilleRoot As String
+    Dim feuilleIndex As Integer
+    Dim lastIndex As Integer
+    lastIndex = 0
+    
+    For Each feuille In Sheets
+        feuilleRoot = Left(feuille.Name, Len(tabRoot))
+        If UCase(tabRoot) = UCase(feuilleRoot) Then
+            feuilleIndex = Right(feuille.Name, Len(feuille.Name) - Len(tabRoot))
+            lastIndex = WorksheetFunction.Max(feuilleIndex, lastIndex)
+        End If
+    Next feuille
+
+    tabManager = tabRoot & lastIndex + 1
+
+End Function
+
+Private Function maRegex(monRange As Range)
+
+    'Méthodes de l'objet regex :
+    'Test – Searches for a pattern in a string and returns True if a match is found.
+    'Replace – Replaces the occurrences of the pattern with the replacement string.
+    'Execute – Returns matches of the pattern against the string.
+    
+    Dim monString As String
+    Dim RE As Object
+    Dim theMatches As Object
+    Dim match As Variant
+    Dim matchCount As Integer
+    Dim monArray() As String
+    
+    matchCount = 0
+    
+    Set RE = New RegExp
+    
+    With RE
+        .Pattern = "\S{1,}"
+        .Global = True 'True : all matches found. False : only first match found
+        .MultiLine = True
+    End With
+    
+    monString = monRange.Value
+    
+    Set theMatches = RE.Execute(monString)
+    
+    If theMatches.Count <> 0 Then
+        For Each match In theMatches
+            ReDim Preserve monArray(matchCount)
+            monArray(matchCount) = match
+            matchCount = matchCount + 1
+        Next
+    End If
+
+    maRegex = monArray()
+
+End Function
+
+Sub printMatches(mesMatches() As String, onglet As String)
+    
+    Dim compteur As Integer
+    compteur = 1
+    
+    On Error GoTo errorHandler
+        
+        Dim match As Variant
+        
+        For Each match In mesMatches
+            Sheets(onglet).Cells(1, compteur).Value = match
+            compteur = compteur + 1
+        Next match
+        
+    Exit Sub
+    
+errorHandler:
+    Sheets(onglet).Cells(1, 1).Value = "No match"
+    
+End Sub
+
+Sub main()
+    
+    Dim onglet As String
+    Dim testTab As String
+    Dim monRange As Range
+    Dim mesMatches() As String
+    Dim cell As Range
+    
+    testTab = ActiveSheet.Name
+    
+    Set monRange = RangeSelect()
+    
+    For Each cell In monRange
+        onglet = tabManager()
+        ActiveWorkbook.Sheets.Add.Name = onglet
+        mesMatches = maRegex(cell)
+        Call printMatches(mesMatches, onglet)
+        Sheets(testTab).Activate
+    Next cell
+
+End Sub
